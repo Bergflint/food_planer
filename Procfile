@@ -1,1 +1,1 @@
-web: daphne food_planer.asgi:application --port $PORT --bind 0.0.0.0
+web: daphne food_planner.asgi:application --port $PORT --bind 0.0.0.0
