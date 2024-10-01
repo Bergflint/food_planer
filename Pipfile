@@ -12,6 +12,7 @@ dendrite-sdk = "*"
 adrf = "*"
 playwright = "*"
 "pdfminer.six" = "*"
+daphne = "*"
 
 [dev-packages]
 
