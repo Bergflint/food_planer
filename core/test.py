@@ -1,5 +1,5 @@
 from dendrite_sdk import Dendrite
-from food_planer.settings import DENDRITE_API_KEY
+from food_planner.settings import DENDRITE_API_KEY
 
 # Get your Dendrite API key from dendrite.systems
 DENDRITE_API_KEY = DENDRITE_API_KEY

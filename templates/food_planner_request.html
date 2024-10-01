@@ -3,7 +3,7 @@
 {% block content %}
     {{ block.super }}
     <h1>Food Planner Form</h1>
-    <form id="fileUploadForm" method="POST" enctype="multipart/form-data" action="{% url 'food_planer' %}">
+    <form id="fileUploadForm" method="POST" enctype="multipart/form-data" action="{% url 'food_planner' %}">
         {% csrf_token %}
 
         <label for="latitude">Latitude:</label><br>
@@ -28,13 +28,13 @@
         // Pre-fill the form with default values if data exists from the backend (optional)
         document.addEventListener('DOMContentLoaded', function() {
             // You can set default values for the form if you have this data from the backend
-            // Replace 'food_planer_serialized.data' with the appropriate data object if needed
+            // Replace 'food_planner_serialized.data' with the appropriate data object if needed
             // Example:
-            // document.getElementById('latitude').value = food_planer_serialized.data['latitude'];
-            // document.getElementById('longitude').value = food_planer_serialized.data['longitude'];
-            // document.getElementById('distance').value = food_planer_serialized.data['distance'] * 1000;
-            // document.getElementById('budget').value = food_planer_serialized.data['budget'];
-            // document.getElementById('portions').value = food_planer_serialized.data['portions'];
+            // document.getElementById('latitude').value = food_planner_serialized.data['latitude'];
+            // document.getElementById('longitude').value = food_planner_serialized.data['longitude'];
+            // document.getElementById('distance').value = food_planner_serialized.data['distance'] * 1000;
+            // document.getElementById('budget').value = food_planner_serialized.data['budget'];
+            // document.getElementById('portions').value = food_planner_serialized.data['portions'];
         });
     </script>
 {% endblock %}

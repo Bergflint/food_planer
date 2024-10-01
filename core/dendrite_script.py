@@ -1,7 +1,7 @@
 import dendrite_sdk
 from dendrite_sdk import Dendrite, AsyncDendrite 
 import asyncio
-from food_planer.settings import DENDRITE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
+from food_planner.settings import DENDRITE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
 
 
 

@@ -14,7 +14,7 @@ import subprocess
 import requests
 
 from django.conf import settings
-from food_planer.settings import OPENAI_API_KEY, ANTHROPIC_API_KEY, DENDRITE_API_KEY
+from food_planner.settings import OPENAI_API_KEY, ANTHROPIC_API_KEY, DENDRITE_API_KEY
 from django.core.exceptions import ImproperlyConfigured
 
 import openai
@@ -44,7 +44,7 @@ else:
 
 def sync_test_view(request):
     result = subprocess.run(
-        ["python", "/home/karlcf/food_planer/core/dendrite_script.py"], capture_output=True, text=True
+        ["python", "/home/karlcf/food_planner/core/dendrite_script.py"], capture_output=True, text=True
     )
     if result.returncode == 0:
         print("This is the result:",result.stdout)
@@ -56,19 +56,19 @@ def sync_test_view(request):
 
 @api_view(['POST'])
 @renderer_classes([JSONRenderer, FoodPlanerPostRenderer])
-def food_planer_request(request):
+def food_planner_request(request):
     if request.method == 'POST':
-        food_planer_serialized = FoodPlanerSerializer(data=request.data)
+        food_planner_serialized = FoodPlanerSerializer(data=request.data)
         print(request.data)
-        print(food_planer_serialized)
-        print(food_planer_serialized.is_valid())
-        if food_planer_serialized.is_valid():
-            latitude = food_planer_serialized.data['latitude']
-            longitude = food_planer_serialized.data['longitude']
-            distance = food_planer_serialized.data['distance']*1000
-            budget = food_planer_serialized.data['budget']
+        print(food_planner_serialized)
+        print(food_planner_serialized.is_valid())
+        if food_planner_serialized.is_valid():
+            latitude = food_planner_serialized.data['latitude']
+            longitude = food_planner_serialized.data['longitude']
+            distance = food_planner_serialized.data['distance']*1000
+            budget = food_planner_serialized.data['budget']
             number_of_dishes = 3
-            portions = food_planer_serialized.data['portions']
+            portions = food_planner_serialized.data['portions']
 
             all_articles_on_sale_in_the_area = []
             all_offers_per_store = []
@@ -268,7 +268,7 @@ def food_planer_request(request):
 ###################################################################################
 ## Now the logic goes like this:
 
-# 1. The user sends a POST request to the /food_planer endpoint.
+# 1. The user sends a POST request to the /food_planner endpoint.
 # This give information about what the user wants to eat for dish.
 
 
