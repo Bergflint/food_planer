@@ -29,7 +29,7 @@ else:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['https://fresh-offer-dishboard.gptengineer.run']
 
 
 # Application definition
@@ -57,6 +57,11 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'food_planner.urls'
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://food-planner-api-4112516d9b5e.herokuapp.com'
+]
+
 
 TEMPLATES = [
     {
