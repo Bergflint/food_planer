@@ -38,6 +38,8 @@ CORS_ALLOWED_ORIGINS = [
     'https://fresh-offer-dishboard.gptengineer.run'
 ]
 
+CORS_ALLOW_CREDENTIALS = True
+
 # Application definition
 
 INSTALLED_APPS = [
