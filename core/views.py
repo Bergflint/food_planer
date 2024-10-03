@@ -321,7 +321,9 @@ def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_coun
                 },
                 "radius": radius
             }
-        }
+        },
+        "rankPreference": 'DISTANCE'
+
     }
 
     # Set up the API request URL and headers
@@ -345,6 +347,7 @@ def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_coun
             'types': place.get('types', []),
             'website': place.get('websiteUri', ''),
             'price_level': place.get('priceLevel', ''),
+            'distance': place.get('distance', ''),
             'rating': place.get('rating', ''),
         })
     
