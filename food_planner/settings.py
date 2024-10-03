@@ -34,6 +34,9 @@ ALLOWED_HOSTS = ['localhost',
                  'fresh-offer-dishboard.gptengineer.run',
                  'food-planner-api-4112516d9b5e.herokuapp.com']
 
+CORS_ALLOWED_ORIGINS = [
+    'https://fresh-offer-dishboard.gptengineer.run'
+]
 
 # Application definition
 
@@ -62,9 +65,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'food_planner.urls'
 
-CSRF_TRUSTED_ORIGINS = ['https://fresh-offer-dishboard.gptengineer.run',
-    'https://food-planner-api-4112516d9b5e.herokuapp.com'
-]
+CSRF_TRUSTED_ORIGINS = ['https://food-planner-api-4112516d9b5e.herokuapp.com']
 
 
 TEMPLATES = [
