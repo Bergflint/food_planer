@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders'
     'rest_framework',
     'adrf',
     'channels',
@@ -54,6 +55,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -65,7 +67,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'food_planner.urls'
 
-CSRF_TRUSTED_ORIGINS = ['https://food-planner-api-4112516d9b5e.herokuapp.com']
+CSRF_TRUSTED_ORIGINS = ['https://food-planner-api-4112516d9b5e.herokuapp.com',
+                        'https://fresh-offer-dishboard.gptengineer.run']
 
 
 TEMPLATES = [

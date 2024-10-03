@@ -14,6 +14,7 @@ playwright = "*"
 "pdfminer.six" = "*"
 daphne = "*"
 channels = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 
