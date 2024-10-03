@@ -29,7 +29,10 @@ else:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['https://fresh-offer-dishboard.gptengineer.run']
+ALLOWED_HOSTS = ['localhost',
+                 '127.0.0.1',
+                 'fresh-offer-dishboard.gptengineer.run',
+                 'food-planner-api-4112516d9b5e.herokuapp.com']
 
 
 # Application definition
@@ -42,8 +45,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'adrf',
+    'channels',
     'core',
-    'adrf'
 ]
 
 MIDDLEWARE = [
@@ -58,7 +62,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'food_planner.urls'
 
-CSRF_TRUSTED_ORIGINS = [
+CSRF_TRUSTED_ORIGINS = ['https://fresh-offer-dishboard.gptengineer.run',
     'https://food-planner-api-4112516d9b5e.herokuapp.com'
 ]
 
@@ -78,6 +82,8 @@ TEMPLATES = [
         },
     },
 ]
+
+ASGI_APPLICATION = 'food_planner.asgi.application'
 
 WSGI_APPLICATION = 'food_planner.wsgi.application'
 
@@ -127,12 +133,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
+# Define the directory for static files
 STATIC_URL = '/static/'
-STATICFIES_DIRS = [
-    os.path.join(BASE_DIR, 'static')
-]
-STATIC_ROOT = BASE_DIR / 'static'
 
+# Define the directory for collected static files
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# If you have additional static files during development
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),  # If you have a static folder in your project
+]
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 

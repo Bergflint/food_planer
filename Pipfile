@@ -13,6 +13,7 @@ adrf = "*"
 playwright = "*"
 "pdfminer.six" = "*"
 daphne = "*"
+channels = "*"
 
 [dev-packages]
 
