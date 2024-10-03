@@ -391,7 +391,7 @@ async def google_search_recepie(client, query: str):
 
 def download_file(url, download_path):
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(executable_path=os.getenv("CHROMIUM_EXECUTABLE_PATH"))
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
         page.goto(url)
@@ -412,7 +412,7 @@ def download_file(url, download_path):
 
 def get_buttons_and_links(url):
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(executable_path=os.getenv("CHROMIUM_EXECUTABLE_PATH"))
         context = browser.new_context()
         page = context.new_page()
 
@@ -466,7 +466,7 @@ def extract_selectors(llm_response):
 
 def click_download(url, selectors):
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(executable_path=os.getenv("CHROMIUM_EXECUTABLE_PATH"))
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
 
@@ -491,7 +491,7 @@ def click_download(url, selectors):
 def generate_pdf(url):
     with sync_playwright() as p:
         # Launch a browser
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(executable_path=os.getenv("CHROMIUM_EXECUTABLE_PATH"))
         # Create a new page
         page = browser.new_page()
         # Navigate to the URL

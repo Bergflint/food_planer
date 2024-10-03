@@ -150,6 +150,9 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+PLAYWRIGHT_BUILDPACK_BROWE = ['chromium']
+BUILDPACK_BROWSERES_INSTALL_PATH = 'browsers'
+
 
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
