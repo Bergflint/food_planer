@@ -11,3 +11,11 @@ class FoodPlanerSerializer(serializers.Serializer):
 
     class Meta:
         fields = ['latitude', 'longitude', 'distance', 'budget', 'portions']
+
+class LocationInfoSerializer(serializers.Serializer):
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    distance = serializers.IntegerField()
+
+    class Meta:
+        fields = ['latitude', 'longitude', 'distance']

@@ -3,9 +3,10 @@ from rest_framework.decorators import api_view, permission_classes, renderer_cla
 from asgiref.sync import sync_to_async, async_to_sync
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
-from .renderers import FoodPlanerPostRenderer
-from .serializers import FoodPlanerSerializer
+from .renderers import *
+from .serializers import *
 from django.http import JsonResponse
+from urllib.parse import urlparse
 
 import subprocess
 
@@ -289,9 +290,24 @@ def food_planner_request(request):
 # 5. The user can then choose to buy the ingredients from the store or not.
 # This is also done using dendrite. We send the user the information about the store and the user can then choose to buy the ingredients from the store or not.
 
+@api_view(['POST'])
+@renderer_classes([JSONRenderer, LocationInfoPostRenderer])
+def get_grocery_stores(request):
+    if request.method == 'POST':
+
+        serializer = LocationInfoSerializer(data=request.data)
+
+        if serializer.is_valid():
+            latitude = serializer.data['latitude']
+            longitude = serializer.data['longitude']
+            distance = serializer.data['distance']*1000
+            grocery_stores = get_nearest_grocery_stores(latitude, longitude, distance, 20)
+            grocery_stores_with_specific_urls = [store for store in grocery_stores if store['website'] != "" and urlparse(store['website']).path not in ('', '/')]
+            
+            return Response({'grocery_stores': grocery_stores_with_specific_urls}, status=200)
 
 
-def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_count=3):
+def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_count=10):
 
     # Construct the request payload
     request_payload = {
