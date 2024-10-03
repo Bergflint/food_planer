@@ -1,0 +1,22 @@
+# Ignore test files and folders
+tests/
+test/
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignore documentation files
+docs/
+README.md
+
+# Ignore unused browser directories if applicable
+# Uncomment the line below if there are specific folders for other browsers
+# browsers/firefox/
+# browsers/webkit/
+
+# Ignore any environment variable files
+.env
+
+# Ignore other non-essential files
+.git/
+.gitignore
