@@ -24,6 +24,7 @@ import asyncio
 import dendrite_sdk
 import tempfile
 from dendrite_sdk import AsyncDendrite
+from geopy.distance import geodesic
 # Create your views here.
 
 from playwright.sync_api import sync_playwright
@@ -297,18 +298,29 @@ def get_grocery_stores(request):
 
         serializer = LocationInfoSerializer(data=request.data)
 
+        socail_medias = ['facebook', 'instagram', 'twitter', 'linkedin', 'pinterest', 'tiktok', 'youtube']
+
         if serializer.is_valid():
             latitude = serializer.data['latitude']
             longitude = serializer.data['longitude']
             distance = serializer.data['distance']*1000
             grocery_stores = get_nearest_grocery_stores(latitude, longitude, distance, 20)
             grocery_stores_with_specific_urls = [store for store in grocery_stores if store['website'] != "" and urlparse(store['website']).path not in ('', '/')]
-            
-            return Response({'grocery_stores': grocery_stores_with_specific_urls}, status=200)
+            print('this is the grocery stores with specific urls:', grocery_stores_with_specific_urls)
+            good_stores = []
+            for store in grocery_stores_with_specific_urls:
+                store_netloc_url = str(urlparse(store['website']).netloc).split('.')
+                if bool(set(store_netloc_url) & set(socail_medias)):
+                    print('this is a social media link:', store['website'])
+                else:
+                    good_stores.append(store)
+                    print('this is not a social media link:', store['website'])
+            return Response({'grocery_stores': good_stores}, status=200)
 
 
 def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_count=10):
 
+    user_location = (latitude, longitude)
     # Construct the request payload
     request_payload = {
         "includedTypes": ["grocery_store","supermarket"],
@@ -331,7 +343,7 @@ def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_coun
     headers = {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': settings.GOOGLE_MAPS_API_KEY,
-        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.websiteUri'
+        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.websiteUri,places.rating,places.id,places.location'
     }
 
     # Make the request to the Google Places API
@@ -341,18 +353,90 @@ def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_coun
     # Parse the response and extract the grocery store data
     grocery_stores = []
     for place in response.json().get('places', []):
+        print('this is the location:', place.get('location', {}))
+        store_latitude = place.get('location', {})['latitude']
+        store_longitude = place.get('location', {})['longitude']
+        store_location = (store_latitude, store_longitude)
+
+
+        distance = geodesic(user_location, store_location).meters.__round__(0)
+
         grocery_stores.append({
             'name': place.get('displayName', ''),
+            'id': place.get('id', ''),
             'address': place.get('formattedAddress', ''),
             'types': place.get('types', []),
             'website': place.get('websiteUri', ''),
-            'price_level': place.get('priceLevel', ''),
-            'distance': place.get('distance', ''),
             'rating': place.get('rating', ''),
+            'distance': int(distance)
         })
     
     print('these are the nearby stores:', grocery_stores)
     return grocery_stores
+
+
+
+
+
+@api_view(['POST'])
+# @renderer_classes([JSONRenderer, FindDishesPostRenderer])
+def find_dishes(request):
+### HERE we open up a SSE connection to the client
+# WE stream whats happening in the background as well as when we get results from the LLM
+## We send that to front end so it can dynamically update the user interface with new dishes and sales offers
+    if request.method == 'POST':
+        serializer = FindDishesSerializer(data=request.data)
+
+        if serializer.is_valid():
+            latitude = serializer.data['latitude']
+            longitude = serializer.data['longitude']
+            distance = serializer.data['distance']*1000
+            budget = serializer.data['budget']
+            number_of_dishes = 3
+            portions = serializer.data['portions']
+
+            all_articles_on_sale_in_the_area = []
+            all_offers_per_store = []
+
+            nearby_stores = get_nearest_grocery_stores(latitude,longitude, distance)
+
+            for store in nearby_stores:
+                store_url = store['website']
+                store_name = store['name']['text']
+                print(f'Now checking sale offer links on {store_name} website:', store_url)
+                # print(f'First checking for potential disches to make with the ingredients')
+                
+                #Get html content from google search
+                url = store_url
+                links = get_buttons_and_links(url)
+
+
+                ##Checking if the first url has offers on the first page
+                try:
+                    content_pdf = generate_pdf(url)
+                except Exception as e:
+                    print(f'Failed to generate PDF from {url}: {e}')
+                    index += 1
+                    continue
+                text_content = pdf_to_text(content_pdf)
+
+                print(f'For url {url}',f'Extracted text: {text_content}')
+    
+
+                content_includes_offers = check_for_offers(text_content)
+
+                if content_includes_offers:
+                    print(f'\n\nOffers where found on the first page {url}\n\nNow organize the offers into dict')
+                    offers_not_found = False
+                    unorganized_text_with_offers = text_content
+                else:
+                    #Now we first search if there are pdf at this first url
+                    offers_not_found = True
+                    index = int(1)
+                    identified_targets_urls = analyze_html_with_llm(links,"urls with grocery sales offer keywords in the link in order where the most likely link to have sales offers first",5)
+
+
+
 
 
 async def google_search_recepie(client, query: str):
