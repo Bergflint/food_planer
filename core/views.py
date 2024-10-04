@@ -210,6 +210,8 @@ def food_planner_request(request):
             
 
             return Response({'store_offers': all_offers_per_store, "dish_suggestions": dishes}, status=200)
+        else:
+            return Response(food_planner_serialized.errors, status=400)
 
 
     ### THIS SHOULD BE A SEPRATE API CALL    
@@ -317,6 +319,8 @@ def get_grocery_stores(request):
                     good_stores.append(store)
                     print('this is not a social media link:', store['website'])
             return Response({'grocery_stores': good_stores}, status=200)
+        else:
+            return Response(serializer.errors, status=400)
         
 
 
@@ -413,6 +417,10 @@ def find_dishes(request):
                             unorganized_text_with_offers = text_content
 
                         index += 1
+
+
+        else:
+            return Response(serializer.errors, status=400)
                 
 
 
