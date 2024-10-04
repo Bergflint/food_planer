@@ -40,6 +40,20 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+EVENTSTREAM_ALLOW_ORIGIN = '*' #Might not be the safest method but a quick fix
+EVENTSTREAM_ALLOW_CREDENTIALS = True
+
+EVENTSTREAM_ALLOW_HEADERS = 'Authorization'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -53,6 +67,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'adrf',
     'channels',
+    'django_eventstream',
     'core',
 ]
 

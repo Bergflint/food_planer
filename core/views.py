@@ -25,6 +25,7 @@ import dendrite_sdk
 import tempfile
 from dendrite_sdk import AsyncDendrite
 from geopy.distance import geodesic
+from django_eventstream import send_event
 # Create your views here.
 
 from playwright.sync_api import sync_playwright
@@ -316,6 +317,103 @@ def get_grocery_stores(request):
                     good_stores.append(store)
                     print('this is not a social media link:', store['website'])
             return Response({'grocery_stores': good_stores}, status=200)
+        
+
+
+
+@api_view(['POST'])
+#@renderer_classes([JSONRenderer, FindDishesPostRenderer])
+def find_dishes(request):
+### HERE we open up a SSE connection to the client
+# WE stream whats happening in the background as well as when we get results from the LLM
+## We send that to front end so it can dynamically update the user interface with new dishes and sales offers
+    if request.method == 'POST':
+        serializer = FindDishesSerializer(data=request.data)
+
+        if serializer.is_valid():
+            stores = serializer.data['stores'] #This is a list with every object being a string of a dictorionary with the store info
+            nearby_stores = [json.loads(store) for store in stores] #Now we have a list with actual dictionaries
+            food_preferences = serializer.data['food_preferences']
+            latitude_str = serializer.data['latitude']
+            longitude_str = serializer.data['longitude']
+
+            SSE_room_id = int(latitude_str.split('.')[0] + latitude_str.split('.')[1])
+            print('this is the SSE room id:', SSE_room_id)
+            all_articles_on_sale_in_the_area = []
+            all_offers_per_store = []
+
+
+            for store in nearby_stores:
+                store_url = store['website']
+                store_name = store['name']['text']
+                print(f'Now checking sale offer links on {store_name} website:', store_url)
+                # print(f'First checking for potential disches to make with the ingredients')
+                
+                #Get html content from google search
+                url = store_url
+                send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Now searching for sale offer links on {store_name} \nWebsite: {store_url}'})
+                links = get_buttons_and_links(url)
+
+
+                ##Checking if the first url has offers on the first page
+                try:
+                    content_pdf = generate_pdf(url)
+                except Exception as e:
+                    print(f'Failed to generate PDF from {url}: {e}')
+                    index += 1
+                    continue
+                text_content = pdf_to_text(content_pdf)
+
+                print(f'For url {url}',f'Extracted text: {text_content}')
+    
+
+                content_includes_offers = check_for_offers(text_content)
+
+                if content_includes_offers:
+                    send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Offers where found on the first page {url} \n\nNow organize the offers...'})
+                    print(f'\n\nOffers where found on the first page {url}\n\nNow organize the offers into dict')
+                    offers_not_found = False
+                    unorganized_text_with_offers = text_content
+                else:
+                    #Now we first search if there are pdf at this first url
+                    offers_not_found = True
+                    index = int(1)
+                    identified_targets_urls = analyze_html_with_llm(links,"urls with grocery sales offer keywords in the link in order where the most likely link to have sales offers first",5)
+
+                    identified_targets_pdf_urls = analyze_html_with_llm(links,"pdfs links",5) #Return a dict as {"url_1": "the first url", "url_2": "The second"} and so on.
+
+                    print(f'Number of potential sale offer links found: {len(identified_targets_urls)}\n\nNow itterate through sale offer pages to check for actual offers')
+
+                    identified_targets_urls = json.loads(identified_targets_urls)
+
+                    while offers_not_found and index < 3:
+
+                        try:
+                            test_url = identified_targets_urls[f"url_{index}"]
+                        except KeyError:
+                            print('No more urls to test so no Offers where found on their page')
+                            break
+
+                        try:
+                            content_pdf = generate_pdf(test_url)
+                        except Exception as e:
+                            print(f'Failed to generate PDF from {test_url}: {e}')
+                            index += 1
+                            continue
+                        text_content = pdf_to_text(content_pdf)
+
+                        print(f'For url {test_url}',f'Extracted text: {text_content}')
+            
+
+                        content_includes_offers = check_for_offers(text_content)
+
+                        if content_includes_offers:
+                            print(f'\n\nOffers where found on the page {test_url}\n\nNow organize the offers into dict')
+                            offers_not_found = False
+                            unorganized_text_with_offers = text_content
+
+                        index += 1
+                
 
 
 def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_count=10):
@@ -376,64 +474,6 @@ def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_coun
 
 
 
-
-
-@api_view(['POST'])
-# @renderer_classes([JSONRenderer, FindDishesPostRenderer])
-def find_dishes(request):
-### HERE we open up a SSE connection to the client
-# WE stream whats happening in the background as well as when we get results from the LLM
-## We send that to front end so it can dynamically update the user interface with new dishes and sales offers
-    if request.method == 'POST':
-        serializer = FindDishesSerializer(data=request.data)
-
-        if serializer.is_valid():
-            latitude = serializer.data['latitude']
-            longitude = serializer.data['longitude']
-            distance = serializer.data['distance']*1000
-            budget = serializer.data['budget']
-            number_of_dishes = 3
-            portions = serializer.data['portions']
-
-            all_articles_on_sale_in_the_area = []
-            all_offers_per_store = []
-
-            nearby_stores = get_nearest_grocery_stores(latitude,longitude, distance)
-
-            for store in nearby_stores:
-                store_url = store['website']
-                store_name = store['name']['text']
-                print(f'Now checking sale offer links on {store_name} website:', store_url)
-                # print(f'First checking for potential disches to make with the ingredients')
-                
-                #Get html content from google search
-                url = store_url
-                links = get_buttons_and_links(url)
-
-
-                ##Checking if the first url has offers on the first page
-                try:
-                    content_pdf = generate_pdf(url)
-                except Exception as e:
-                    print(f'Failed to generate PDF from {url}: {e}')
-                    index += 1
-                    continue
-                text_content = pdf_to_text(content_pdf)
-
-                print(f'For url {url}',f'Extracted text: {text_content}')
-    
-
-                content_includes_offers = check_for_offers(text_content)
-
-                if content_includes_offers:
-                    print(f'\n\nOffers where found on the first page {url}\n\nNow organize the offers into dict')
-                    offers_not_found = False
-                    unorganized_text_with_offers = text_content
-                else:
-                    #Now we first search if there are pdf at this first url
-                    offers_not_found = True
-                    index = int(1)
-                    identified_targets_urls = analyze_html_with_llm(links,"urls with grocery sales offer keywords in the link in order where the most likely link to have sales offers first",5)
 
 
 

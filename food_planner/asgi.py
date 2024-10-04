@@ -19,10 +19,14 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'food_planner.settings')
 
 application = ProtocolTypeRouter({
     'http': URLRouter([
-        path('core/rooms/<room_id>/events/', AuthMiddlewareStack(
+        path('core/rooms/<latitude>/events/', AuthMiddlewareStack(
             URLRouter(django_eventstream.routing.urlpatterns)
-        ), { 'format-channels': ['room-{room_id}'] }),
+        ), { 'format-channels': ['room-{latitude}'] }),
 
+        path('events/', AuthMiddlewareStack(
+            URLRouter(django_eventstream.routing.urlpatterns)
+        ), { 'channels': ['food_planner_channel'] }),
+        
         re_path(r'', get_asgi_application()),
     ]),
 })
