@@ -335,9 +335,9 @@ def find_dishes(request):
         serializer = FindDishesSerializer(data=request.data)
 
         if serializer.is_valid():
-            stores = serializer.data['stores'] #This is a list with every object being a string of a dictorionary with the store info
+            stores = serializer.data['selectedStores'] #This is a list with every object being a string of a dictorionary with the store info
             nearby_stores = [json.loads(store) for store in stores] #Now we have a list with actual dictionaries
-            food_preferences = serializer.data['food_preferences']
+            food_preferences = serializer.data['foodPreferences']
             latitude_str = serializer.data['latitude']
             longitude_str = serializer.data['longitude']
 

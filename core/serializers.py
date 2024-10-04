@@ -21,10 +21,10 @@ class LocationInfoSerializer(serializers.Serializer):
         fields = ['latitude', 'longitude', 'distance']
 
 class FindDishesSerializer(serializers.Serializer):
-    stores = serializers.ListField(child=serializers.CharField()) #A list with all the places ID
-    food_preferences = serializers.ListField(child=serializers.CharField()) #A list with all the food preferences
+    selectedStores = serializers.ListField(child=serializers.CharField()) #A list with all the places ID
+    foodPreferences = serializers.ListField(child=serializers.CharField()) #A list with all the food preferences
     latitude = serializers.CharField()
     longitude = serializers.CharField()
 
     class Meta:
-        fields = ['store_ids', 'food_preferences', 'latitude', 'longitude']
+        fields = ['selectedStores', 'foodPreferences', 'latitude', 'longitude']
