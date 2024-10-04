@@ -421,8 +421,136 @@ def find_dishes(request):
 
         else:
             return Response(serializer.errors, status=400)
-                
 
+@api_view(['POST'])
+#@renderer_classes([JSONRenderer, FindDishesPostRenderer])
+def find_dish_fast(request):
+### HERE we open up a SSE connection to the client
+# WE stream whats happening in the background as well as when we get results from the LLM
+## We send that to front end so it can dynamically update the user interface with new dishes and sales offers
+    if request.method == 'POST':
+        serializer = FindDishesSerializer(data=request.data)
+
+        if serializer.is_valid():
+            stores = serializer.data['selectedStores'] #This is a list with every object being a string of a dictorionary with the store info
+            nearby_stores = [json.loads(store) for store in stores] #Now we have a list with actual dictionaries
+            food_preferences = serializer.data['foodPreferences']
+            latitude_str = serializer.data['latitude']
+            longitude_str = serializer.data['longitude']
+
+            SSE_room_id = int(latitude_str.split('.')[0] + latitude_str.split('.')[1])
+            print('this is the SSE room id:', SSE_room_id)
+            all_articles_on_sale_in_the_area = []
+            all_offers_per_store = []
+
+
+            for store in nearby_stores:
+                store_url = store['website']
+                store_name = store['name']['text']
+                print(f'Now checking sale offer links on {store_name} website:', store_url)
+                # print(f'First checking for potential disches to make with the ingredients')
+                
+                #Get html content from google search
+                url = store_url
+                send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Now searching for sale offer links on {store_name} \nWebsite: {store_url}'})
+                links = get_buttons_and_links(url)
+
+
+                ##Checking if the first url has offers on the first page
+                try:
+                    content_pdf = generate_pdf(url)
+                except Exception as e:
+                    print(f'Failed to generate PDF from {url}: {e}')
+                    index += 1
+                    continue
+                text_content = pdf_to_text(content_pdf)
+
+                print(f'For url {url}',f'Extracted text: {text_content}')
+    
+
+                content_includes_offers = check_for_offers(text_content)
+
+                if content_includes_offers:
+                    send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Offers where found on the first page {url} \n\nNow organize the offers...'})
+                    print(f'\n\nOffers where found on the first page {url}\n\nNow organize the offers into dict')
+                    offers_not_found = False
+                    unorganized_text_with_offers = text_content
+
+                    dict_with_offers = organize_offers(unorganized_text_with_offers)
+
+                else:
+                    print('No offers where found on the first page')
+                    #Now we first search if there are pdf at this first url
+                    send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'No offers where found on the first page {url} \n\nNow going to next store...'})
+
+                dict_with_offers = organize_offers(unorganized_text_with_offers)
+                
+                all_articles_on_sale_in_the_area.extend(dict_with_offers["offers"].keys())
+                # print('this is the dict with offers:', dict_with_offers)
+            
+
+                store_product_prices = {f'{store_name}': 
+                dict_with_offers["offers"]
+    }
+                all_offers_per_store.append(store_product_prices)
+                #########################################
+                #######
+
+                break #break after first store for testing
+
+            print('\n\nNow we have all articles on sale in the area and the prices of the articles in the stores.\n\n Now we give suggestions on possible dishes that can be made:')
+            # Now we have all articles on sale in the area and the prices of the articles in the stores.
+
+            dishes = []
+            print('this is the all offers per store:', len(all_offers_per_store))
+            while len(dishes) < 1: #Only one dish for testing
+
+                for store_offers in all_offers_per_store:
+                    if len(store_offers.values()) == 0:
+                        continue
+                
+                    print(f'Now giving  a dish suggestion from the store: {store_offers}')
+                    store_name = list(store_offers.keys())[0]
+                    #Store offers is a dict
+                    # Create dish_suggestions
+                    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+
+                    dish_sugestions = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        max_tokens=256*4, 
+                        n=1, 
+                        stop=None, 
+                        temperature=0.5,
+                        messages=[ 
+                        {"role": "system", "content": [{"type": "text", "text": "You are an diner sugesttions assistan. You are helping a user find cheap alternatives for dishes based on existing sales prices."}]},
+                        {"role": "user", "content": [{"type": "text", "text": f"Here are the articles and with their orignal and reduced price as a dict for a store:{store_offers} ."}]},
+                        {"role": "user", "content": [{"type": "text", "text": f"Do not schoos a dish that is already in this list: {dishes}."}]},
+                        {"role": "system", "content": [{"type": "text", "text": """Now give the user 1 suggestions for a dish that will use as many products as possible from the sales lists. Only answer with the name of the dish."""}]},
+
+                    ]
+                    
+                    )
+
+                
+                
+                    dish_sugestion_response = dish_sugestions.choices[0].message.content
+                    print('this is the dish sugestions:', dish_sugestion_response)
+                    dishes.append((store_name,dish_sugestion_response))
+
+                    print("This is the number of suggested dishes",len(dishes))
+
+                    if len(dishes) == 1:
+                        break
+
+
+            send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Here are the dishes that we found: {dishes}'})
+                
+            
+
+            return Response({'store_offers': all_offers_per_store, "dish_suggestions": dishes}, status=200)
+        else:
+            return Response(FindDishesSerializer.errors, status=400)
 
 def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_count=10):
 
