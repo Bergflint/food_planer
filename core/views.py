@@ -548,6 +548,7 @@ def find_dishes_fast(request):
                                                                         {'message': f'Could not read information on: {store_url}:'
                                                                         }
                                                                     })
+                return Response({'message': 'Could not read information on: {store_url}'}, status=400)
                 
                 
             text_content = pdf_to_text(content_pdf)
