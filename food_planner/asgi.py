@@ -15,7 +15,7 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 import django_eventstream
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'food_planner.settings')
+# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'food_planner.settings.dev')
 
 application = ProtocolTypeRouter({
     'http': URLRouter([

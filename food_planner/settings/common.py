@@ -14,17 +14,12 @@ from pathlib import Path
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-if os.environ.get('DJANGO_SECRET_KEY'):
-    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-else:
-    SECRET_KEY = 'django-insecure-h$awk!rn+dn6$a8$6xu8d(skuzgr*4(gvo9o^^q=vm(39l8y20'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -45,11 +40,23 @@ EVENTSTREAM_ALLOW_CREDENTIALS = True
 
 EVENTSTREAM_ALLOW_HEADERS = 'Authorization'
 
+# settings.py
+
+
+# Celery Configuration Options
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+GRIP_URL = 'http://localhost:5561'
+
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': [('127.0.0.1', 6379)],
+            'hosts': [('redis', 6379)],
         },
     },
 }
@@ -72,6 +79,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django_grip.GripMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

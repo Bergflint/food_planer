@@ -6,5 +6,5 @@ class FoodPlanerPostRenderer(BrowsableAPIRenderer):
 class LocationInfoPostRenderer(BrowsableAPIRenderer):
     template = 'location_info_request.html'
 
-# class FindDishesPostRenderer(BrowsableAPIRenderer):
-#     template = 'find_dishes_request.html'
+class FindDishesPostRenderer(BrowsableAPIRenderer):
+    template = 'find_dishes_request.html'

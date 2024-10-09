@@ -1,11 +1,13 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes, renderer_classes
+from django.views.decorators.csrf import csrf_exempt
 from asgiref.sync import sync_to_async, async_to_sync
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from .renderers import *
 from .serializers import *
-from django.http import JsonResponse
+from .tasks import *
+from django.http import JsonResponse, HttpResponseNotAllowed
 from urllib.parse import urlparse
 
 import subprocess
@@ -15,7 +17,7 @@ import subprocess
 import requests
 
 from django.conf import settings
-from food_planner.settings import OPENAI_API_KEY, ANTHROPIC_API_KEY, DENDRITE_API_KEY
+from food_planner.settings.common import OPENAI_API_KEY, ANTHROPIC_API_KEY, DENDRITE_API_KEY
 from django.core.exceptions import ImproperlyConfigured
 
 import openai
@@ -44,6 +46,66 @@ else:
 #     dendrite_client = dendrite_sdk.AsyncDendrite(dendrite_api_key=DENDRITE_API_KEY,openai_api_key=OPENAI_API_KEY,anthropic_api_key=ANTHROPIC_API_KEY)
 #     await dendrite_client.goto("https://google.com")
 #     return JsonResponse({'message': 'Hello from async view'})
+from django_grip import set_hold_stream, publish
+from gripcontrol import HttpStreamFormat, Channel, HttpResponseFormat, GripPubControl
+from django.http import HttpResponse
+
+from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
+
+from django.views.decorators.csrf import csrf_exempt
+
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+
+def pushpin_test(request):
+    if request.method == 'GET':
+        # if the request didn't come through a GRIP proxy, throw 501
+
+        # subscribe every incoming request to a channel in stream mode
+        resp = HttpResponse('Stream opened, prepare yourself!\n',
+        content_type='text/event-stream')
+        set_hold_stream(request, 'test', keep_alive_data='[keep-alive]\n', keep_alive_timeout=5)
+        return resp
+    elif request.method == 'POST':
+        # if the request didn't come through a GRIP proxy, throw 501
+        # if not request.grip_proxied:
+        #     return HttpResponse('Not Implemented\n', status=501)
+        data = request.POST.get('data', '')  # Ensure this key exists
+        # publish to the channel
+        # publish('test', HttpStreamFormat(headers={'Content-type': 'text/event-stream'}, body= 'event: update\ndata: hello world\n\n'))
+        # Now test with a ordinary post request with following structure:
+        payload = {
+        'items': [
+            {
+                'channel': 'test',
+                'formats': {
+                    'http-stream': {
+                        'content': f'{data}\n'  # Dynamic content
+                    }
+                }
+            }
+        ]
+    }
+        print(settings.GRIP_URL, )
+
+        try:
+            response = requests.post(
+                settings.GRIP_URL + '/publish',  # Ensure this URL is correct
+                headers={'Content-Type': 'application/json'},
+                json=payload  # Using the json parameter for automatic serialization
+            )
+            response.raise_for_status()  # Raises an error for bad responses
+            print("Success:", response.json())  # Print the response if needed
+        except requests.exceptions.RequestException as e:
+            print("Error occurred:", e)
+            return HttpResponse('Error occurred\n', status=500)
+        else:
+            return HttpResponseNotAllowed(['GET', 'POST'])
 
 def sync_test_view(request):
     result = subprocess.run(
@@ -102,6 +164,7 @@ def food_planner_request(request):
     
 
                 content_includes_offers = check_for_offers(text_content)
+                content_includes_offers = content_includes_offers['sales_offers_exists']
 
                 if content_includes_offers:
                     print(f'\n\nOffers where found on the first page {url}\n\nNow organize the offers into dict')
@@ -137,6 +200,7 @@ def food_planner_request(request):
             
 
                         content_includes_offers = check_for_offers(text_content)
+                        content_includes_offers = content_includes_offers['sales_offers_exists']
 
                         if content_includes_offers:
                             print(f'\n\nOffers where found on the page {test_url}\n\nNow organize the offers into dict')
@@ -178,7 +242,7 @@ def food_planner_request(request):
 
 
                     dish_sugestions = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
+                        model="gpt-4o-mini",
                         max_tokens=256*4, 
                         n=1, 
                         stop=None, 
@@ -195,9 +259,9 @@ def food_planner_request(request):
 
                 
                 
-                    dish_sugestion_response = dish_sugestions.choices[0].message.content
-                    print('this is the dish sugestions:', dish_sugestion_response)
-                    dishes.append((store_name,dish_sugestion_response))
+                    dish_suggestion_response = dish_sugestions.choices[0].message.content
+                    print('this is the dish sugestions:', dish_suggestion_response)
+                    dishes.append((store_name,dish_suggestion_response))
 
                     print("This is the number of suggested dishes",len(dishes), number_of_dishes)
 
@@ -221,7 +285,7 @@ def food_planner_request(request):
 
 
 #                 ingredients_creator = client.chat.completions.create(
-#                     model="gpt-3.5-turbo",
+#                     model="gpt-4o-mini",
 #                     max_tokens=256, 
 #                     n=1, 
 #                     stop=None, 
@@ -244,7 +308,7 @@ def food_planner_request(request):
 
 
 #             cheapest_grocery_store = client.chat.completions.create(
-#                 model="gpt-3.5-turbo",
+#                 model="gpt-4o-mini",
 #                 max_tokens=256*4, 
 #                 n=1, 
 #                 stop=None, 
@@ -372,6 +436,7 @@ def find_dishes(request):
     
 
                 content_includes_offers = check_for_offers(text_content)
+                content_includes_offers = content_includes_offers['sales_offers_exists']
 
                 if content_includes_offers:
                     send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Offers where found on the first page {url} \n\nNow organize the offers...'})
@@ -410,6 +475,7 @@ def find_dishes(request):
             
 
                         content_includes_offers = check_for_offers(text_content)
+                        content_includes_offers = content_includes_offers['sales_offers_exists']
 
                         if content_includes_offers:
                             print(f'\n\nOffers where found on the page {test_url}\n\nNow organize the offers into dict')
@@ -423,8 +489,8 @@ def find_dishes(request):
             return Response(serializer.errors, status=400)
 
 @api_view(['POST'])
-#@renderer_classes([JSONRenderer, FindDishesPostRenderer])
-def find_dish_fast(request):
+@renderer_classes([JSONRenderer, FindDishesPostRenderer])
+def find_dishes_fast(request):
 ### HERE we open up a SSE connection to the client
 # WE stream whats happening in the background as well as when we get results from the LLM
 ## We send that to front end so it can dynamically update the user interface with new dishes and sales offers
@@ -432,123 +498,202 @@ def find_dish_fast(request):
         serializer = FindDishesSerializer(data=request.data)
 
         if serializer.is_valid():
-            stores = serializer.data['selectedStores'] #This is a list with every object being a string of a dictorionary with the store info
-            nearby_stores = [json.loads(store) for store in stores] #Now we have a list with actual dictionaries
+            number_of_dishes = 2
+
             food_preferences = serializer.data['foodPreferences']
             latitude_str = serializer.data['latitude']
             longitude_str = serializer.data['longitude']
-
+            store_id = serializer.data['selectedStoreID'] #This is a list with every object being a string of a dictorionary with the store info
+            
             SSE_room_id = int(latitude_str.split('.')[0] + latitude_str.split('.')[1])
-            print('this is the SSE room id:', SSE_room_id)
-            all_articles_on_sale_in_the_area = []
-            all_offers_per_store = []
+            input(f'this is the SSE room id:: {SSE_room_id}')
 
+            # Set up the API request URL and headers
+            url = "https://places.googleapis.com/v1/places/" + store_id
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': settings.GOOGLE_MAPS_API_KEY,
+                'X-Goog-FieldMask': 'displayName,websiteUri'
+            }
 
-            for store in nearby_stores:
-                store_url = store['website']
-                store_name = store['name']['text']
-                print(f'Now checking sale offer links on {store_name} website:', store_url)
-                # print(f'First checking for potential disches to make with the ingredients')
-                
-                #Get html content from google search
-                url = store_url
-                send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Now searching for sale offer links on {store_name} \nWebsite: {store_url}'})
-                links = get_buttons_and_links(url)
-
-
-                ##Checking if the first url has offers on the first page
-                try:
-                    content_pdf = generate_pdf(url)
-                except Exception as e:
-                    print(f'Failed to generate PDF from {url}: {e}')
-                    index += 1
-                    continue
-                text_content = pdf_to_text(content_pdf)
-
-                print(f'For url {url}',f'Extracted text: {text_content}')
-    
-
-                content_includes_offers = check_for_offers(text_content)
-
-                if content_includes_offers:
-                    send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Offers where found on the first page {url} \n\nNow organize the offers...'})
-                    print(f'\n\nOffers where found on the first page {url}\n\nNow organize the offers into dict')
-                    offers_not_found = False
-                    unorganized_text_with_offers = text_content
-
-                    dict_with_offers = organize_offers(unorganized_text_with_offers)
-
-                else:
-                    print('No offers where found on the first page')
-                    #Now we first search if there are pdf at this first url
-                    send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'No offers where found on the first page {url} \n\nNow going to next store...'})
-
-                dict_with_offers = organize_offers(unorganized_text_with_offers)
-                
-                all_articles_on_sale_in_the_area.extend(dict_with_offers["offers"].keys())
-                # print('this is the dict with offers:', dict_with_offers)
+            # Make the request to the Google Places API
+            response = requests.get(url, headers=headers)
+            print('this is the response:', response.json())
             
 
-                store_product_prices = {f'{store_name}': 
-                dict_with_offers["offers"]
-    }
-                all_offers_per_store.append(store_product_prices)
-                #########################################
-                #######
+            store = response.json()
 
-                break #break after first store for testing
+            store_url = store.get('websiteUri')
+            store_name = store.get('displayName')['text']
+            print(f'Nohis is the number of suggested dishesw checking sale offer links on {store_name} website:', store_url)
+            # print(f'First checking for potential disches to make with the ingredients')
+            
+            #Get html content from google search
+            store_url = store_url
+            send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'info' , 
+                                                                    'data': {
+                                                                            'message': f'Now searching for sale offer links on {store_name}', 
+                                                                            'extra_info': store_url
+                                                                        }
+                                                                    })
+            
+            links = get_buttons_and_links(store_url)  #This can be used to check other links and buttons on the landing page
+
+            ##Checking if the first store_url has offers on the first page
+            try:
+                content_pdf = generate_pdf(store_url)
+            except Exception as e:
+                print(f'Failed to generate PDF from {store_url}: {e}')
+                send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'closing_info', 'data' :
+                                                                        {'message': f'Could not read information on: {store_url}:'
+                                                                        }
+                                                                    })
+                
+                
+            text_content = pdf_to_text(content_pdf)
+
+            print(f'For store_url {store_url}',f'Extracted text: {text_content}')
+
+            content_includes_offers = check_for_offers(text_content)
+            
+            sales_offers_exists = content_includes_offers['sales_offers_exists']
+            number_of_offers = content_includes_offers['number_of_offers']
+
+            print('this is the sales offers exists:', sales_offers_exists, number_of_offers)
+
+            if sales_offers_exists and number_of_offers > 5:
+                send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'info' , 
+                                                                    'data': {
+                                                                            'message': f'Offers where found on the first page', 
+                                                                            'extra_info': store_url
+                                                                        }
+                                                                    })
+                    # 'message': f'Offers where found on the first page \n\nNow organize the offers...', 'store_url': store_url})
+                
+                print(f'\n\nOffers where found on the first page {store_url}\n\nNow organize the offers into dict')
+                unorganized_text_with_offers = text_content
+
+                dict_with_offers = organize_offers(unorganized_text_with_offers)
+
+            elif not sales_offers_exists or number_of_offers <= 5:
+                print('No offers or less then or equal to 5 where found on the first page')
+                #Now we first search if there are pdf at this first url
+                send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'closing_info', 'data' :
+                                                                        {'message': f'No offers where found on the first page.'
+                                                                        }
+                                                                    })
+                
+                inks = get_buttons_and_links(store_url)  #This can be used to check other links and buttons on the landing page
+                #Here we should make a HTTPResponse that tells the user that no offers where found on the first page
+                #This will allow the client side to try again and we will return the most probable urls that the client side can try
+                
+            dict_with_offers = organize_offers(unorganized_text_with_offers)
+            
+            # print('this is the dict with offers:', dict_with_offers)
+        
+
+            store_offers = dict_with_offers["offers"]
+                                    
+             
+            #########################################
+            #######
 
             print('\n\nNow we have all articles on sale in the area and the prices of the articles in the stores.\n\n Now we give suggestions on possible dishes that can be made:')
             # Now we have all articles on sale in the area and the prices of the articles in the stores.
 
             dishes = []
-            print('this is the all offers per store:', len(all_offers_per_store))
-            while len(dishes) < 1: #Only one dish for testing
+            print('this is the all offers:', len(store_offers))
+            while len(dishes) < number_of_dishes: #3 dishes for
+            
+                print(f'Now giving a dish suggestion from the store: {store_name}')
+                #Store offers is a dict
+                # Create dish_suggestions
+                client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-                for store_offers in all_offers_per_store:
-                    if len(store_offers.values()) == 0:
-                        continue
+
+                dish_sugestions = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    max_tokens=256*4, 
+                    n=1, 
+                    stop=None, 
+                    temperature=0.5,
+                    messages=[ 
+                    {"role": "system", "content": [{"type": "text", "text": "You are an dinner sugesttions assistan. You are helping a user find cheap alternatives for dishes based on existing sales prices."}]},
+                    {"role": "user", "content": [{"type": "text", "text": f"Here are the articles and with their orignal and reduced price as a dict for a store:{store_offers} ."}]},
+                    {"role": "user", "content": [{"type": "text", "text": f"Do not schoos a dish that is already in this list: {dishes}."}]},
+                    {"role": "system", "content": [{"type": "text", "text": """Now give the user 1 suggestion for a dish that will use as many products as possible from the sales lists. Only answer with the name of the dish."""}]},
+
+                ]
                 
-                    print(f'Now giving  a dish suggestion from the store: {store_offers}')
-                    store_name = list(store_offers.keys())[0]
-                    #Store offers is a dict
-                    # Create dish_suggestions
-                    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+                )
+            
+                dish_suggestion_response = dish_sugestions.choices[0].message.content
+                print('this is the dish sugestions:', dish_suggestion_response)
 
-
-                    dish_sugestions = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        max_tokens=256*4, 
-                        n=1, 
-                        stop=None, 
-                        temperature=0.5,
-                        messages=[ 
-                        {"role": "system", "content": [{"type": "text", "text": "You are an diner sugesttions assistan. You are helping a user find cheap alternatives for dishes based on existing sales prices."}]},
-                        {"role": "user", "content": [{"type": "text", "text": f"Here are the articles and with their orignal and reduced price as a dict for a store:{store_offers} ."}]},
-                        {"role": "user", "content": [{"type": "text", "text": f"Do not schoos a dish that is already in this list: {dishes}."}]},
-                        {"role": "system", "content": [{"type": "text", "text": """Now give the user 1 suggestions for a dish that will use as many products as possible from the sales lists. Only answer with the name of the dish."""}]},
-
+                ingredients_creator = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    max_tokens=256,
+                    n=1,
+                    stop=None,
+                    temperature=0.5,
+                    response_format= { "type": "json_object" },
+                    messages=[ 
+                    {"role": "system", "content": [{"type": "text", "text": "You are an food shopping assistant. You are helping a user to write out the ingredients that is needed for a dish."}]},
+                    {"role": "system", "content": [{"type": "text", "text": f"The user wants to make {dish_suggestion_response}. All these ingredients are on sale so try to base the dinners on these ingredients but of course other ingredients are welcome as well: " + str(dict_with_offers["offers"].keys())}]},
+                    {"role": "user", "content": [{"type": "text", "text": f"Write out the ingredients that is needed for the dish {dish_suggestion_response}."}]},
+                    {"role": "system", "content": [{"type": "text", "text": """Now give the user the list of ingredients that they need to buy for the dish in a json format with the following keys and values: {"ingredients": "List with the ingredients needed "}."""}]},
                     ]
-                    
-                    )
+                )
 
                 
-                
-                    dish_sugestion_response = dish_sugestions.choices[0].message.content
-                    print('this is the dish sugestions:', dish_sugestion_response)
-                    dishes.append((store_name,dish_sugestion_response))
+                ingredients_response = ingredients_creator.choices[0].message.content
 
-                    print("This is the number of suggested dishes",len(dishes))
+                ingredients_json = json.loads(ingredients_response)
 
-                    if len(dishes) == 1:
-                        break
+                print('this is the ingredients:', ingredients_json)
+
+                sales_offers_seperator = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    max_tokens=256,
+                    n=1,
+                    stop=None,
+                    temperature=0.5,
+                    response_format= { "type": "json_object" },
+                    messages=[
+                    {"role": "system", "content": [{"type": "text", "text": "You are a food offers seperator specialist. You are helping a user to seperate products that is on sale from the rest."}]},
+                    {"role": "system", "content": [{"type": "text", "text": f"Here is the list of products on sale: {dict_with_offers['offers'].keys()}."}]},
+                    {"role": "system", "content": [{"type": "text", "text": f"Here are all the products needed: {ingredients_json}."}]},
+                    {"role": "user", "content": [{"type": "text", "text": f"Seperate the products that are on sale from the rest of the products."}]},
+                    {"role": "system", "content": [{"type": "text", "text": """Now seperate the products that are on sale from the rest of the products and answer in json format with the following keys and values: {"products_on_sale": "List with the products on sale", "products_not_on_sale": "List with the products not on sale"}."""}]},
+                    ]
+                )
+
+                sales_offers_seperator_response = sales_offers_seperator.choices[0].message.content
+
+                sales_offers_seperator_json = json.loads(sales_offers_seperator_response)
+
+                print('this is the sales offers seperator:', sales_offers_seperator_json)
 
 
-            send_event('room-{}'.format(SSE_room_id), 'message', {'message': f'Here are the dishes that we found: {dishes}'})
-                
+
+                dishes.append((dish_suggestion_response, ingredients_json))
+
+                print("This is the number of suggested dishes",len(dishes))
+
+
+                send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'dish_suggestion', 'data': 
+                                                                        {'message': f'Dish suggestion found!',
+                                                                        'store': store_name,
+                                                                        'dish': dish_suggestion_response,
+                                                                        'ingredients_on_sale': sales_offers_seperator_json['products_on_sale'],
+                                                                        'ingredients_not_on_sale': sales_offers_seperator_json['products_not_on_sale']
+                                                                        }
+                                                                    }
+                                                                )
+
             
 
-            return Response({'store_offers': all_offers_per_store, "dish_suggestions": dishes}, status=200)
+            return Response({'store_name': store_name, 'store_offers': store_offers, "dish_suggestions": dishes,}, status=200)
         else:
             return Response(FindDishesSerializer.errors, status=400)
 
@@ -814,8 +959,8 @@ def check_for_offers(text_content):
                 temperature=0.5,
                 response_format= { "type": "json_object" },
                 messages=[
-                    {"role": "system", "content": [{"type": "text", "text": f'Analyze the following text: {text_content} and find if there are any sales offers where both articles and their prices.'}]},
-                    {"role": "system", "content": [{"type": "text", "text": """Now answer in a json format with boolean values wheter there are any sales offers or not {"sales_offers_exists": "Boolean True or False wheter sales offers exists in the text"}."""}]},
+                    {"role": "system", "content": [{"type": "text", "text": f'Analyze the following text: {text_content} and find if there are any sales offers, both article names and their prices.'}]},
+                    {"role": "system", "content": [{"type": "text", "text": """Now answer in a json format with boolean values wheter there are any sales offers or not {"sales_offers_exists": "Boolean True or False wheter sales offers exists in the text", "number_of_offers": "The number of offers found"}."""}]},
                 ]
             )
     
@@ -823,7 +968,8 @@ def check_for_offers(text_content):
 
     response = response.choices[0].message.content
     response = json.loads(response)
-    return response['sales_offers_exists']
+    return response
+
 
 
 def organize_offers(unorganized_text_with_offers):

@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  web:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8000 food_planner.asgi:application
+    develop:
+      watch:
+        - action: sync
+          path: ./
+          target: ./code
+        - action: rebuild
+          path: Pipfile.lock
+    env_file:
+      - .env
+    ports:
+      - 8000:8000
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+      - pushpin
+
+  redis:
+    image: redis:alpine
+    ports:
+      - 6379:6379
+
+      
+  celery:
+    build:
+      context: .
+    command: celery -A food_planner worker --loglevel=INFO
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+    user: nobody
+
+  pushpin:
+    image: fanout/pushpin  # Use the official Pushpin image
+    container_name: pushpin  # Use container_name instead of name
+    ports:
+      - "7999:7999"  # Map host port 7999 to container port 7999
+      - "5561:5561"  # Map host port 5561 to container port 5561
+    volumes:
+      - ./routes:/etc/pushpin/routes  # Mount the routes file into Pushpin
+    restart: always  # Use restart instead of restartPolicy

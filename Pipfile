@@ -18,6 +18,8 @@ django-cors-headers = "*"
 django-eventstream = "==4.5.1"
 geopy = "*"
 celery = "*"
+redis = "*"
+django-grip = "*"
 
 [dev-packages]
 
