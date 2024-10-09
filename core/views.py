@@ -506,7 +506,7 @@ def find_dishes_fast(request):
             store_id = serializer.data['selectedStoreID'] #This is a list with every object being a string of a dictorionary with the store info
             
             SSE_room_id = int(latitude_str.split('.')[0] + latitude_str.split('.')[1])
-            input(f'this is the SSE room id:: {SSE_room_id}')
+            print(f'this is the SSE room id:: {SSE_room_id}')
 
             # Set up the API request URL and headers
             url = "https://places.googleapis.com/v1/places/" + store_id
