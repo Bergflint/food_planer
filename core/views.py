@@ -499,6 +499,7 @@ def find_dishes_fast(request):
 
         if serializer.is_valid():
             number_of_dishes = 2
+            min_number_of_offers_on_site = 3
 
             food_preferences = serializer.data['foodPreferences']
             latitude_str = serializer.data['latitude']
@@ -562,7 +563,7 @@ def find_dishes_fast(request):
 
             print('this is the sales offers exists:', sales_offers_exists, number_of_offers)
 
-            if sales_offers_exists and number_of_offers > 5:
+            if sales_offers_exists and number_of_offers > min_number_of_offers_on_site:
                 send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'info' , 
                                                                     'data': {
                                                                             'message': f'Offers where found on the first page', 
@@ -576,7 +577,7 @@ def find_dishes_fast(request):
 
                 dict_with_offers = organize_offers(unorganized_text_with_offers)
 
-            elif not sales_offers_exists or number_of_offers <= 5:
+            elif not sales_offers_exists or number_of_offers <= min_number_of_offers_on_site:
                 print('No offers or less then or equal to 5 where found on the first page')
                 #Now we first search if there are pdf at this first url
                 send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'closing_info', 'data' :
@@ -588,6 +589,8 @@ def find_dishes_fast(request):
                 #Here we should make a HTTPResponse that tells the user that no offers where found on the first page
                 #This will allow the client side to try again and we will return the most probable urls that the client side can try
                 
+
+
             dict_with_offers = organize_offers(unorganized_text_with_offers)
             
             # print('this is the dict with offers:', dict_with_offers)
@@ -604,7 +607,7 @@ def find_dishes_fast(request):
 
             dishes = []
             print('this is the all offers:', len(store_offers))
-            while len(dishes) < number_of_dishes: #3 dishes for
+            while len(dishes) < number_of_dishes:
             
                 print(f'Now giving a dish suggestion from the store: {store_name}')
                 #Store offers is a dict
