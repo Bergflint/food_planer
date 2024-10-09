@@ -2,7 +2,7 @@ from .common import *
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # SECURITY WARNING: keep the secret key used in production secret!
 if os.environ.get('DJANGO_SECRET_KEY'):
