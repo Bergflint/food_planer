@@ -499,7 +499,7 @@ def find_dishes_fast(request):
 
         if serializer.is_valid():
             number_of_dishes = 2
-            min_number_of_offers_on_site = 3
+            min_number_of_offers_on_site = 1
 
             food_preferences = serializer.data['foodPreferences']
             latitude_str = serializer.data['latitude']
