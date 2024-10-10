@@ -581,7 +581,7 @@ def find_dishes_fast(request):
                 print('No offers or less then or equal to 5 where found on the first page')
                 #Now we first search if there are pdf at this first url
                 send_event('room-{}'.format(SSE_room_id), 'message', {'message_type': 'closing_info', 'data' :
-                                                                        {'message': f'No offers where found on the first page.'
+                                                                        {'message': f'No offers where found on the first page for {store_name}.'
                                                                         }
                                                                     })
                 
