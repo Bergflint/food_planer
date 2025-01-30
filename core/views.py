@@ -712,11 +712,8 @@ def find_dishes_fast(request):
                                                                     }
                                                                 )
 
-            store_offers = {k: list(v) for k, v in store_offers.items()} # This is so that we can return the dict as a list of lists
 
-            dishes = [[dish,ingredients] for dish, ingredients in dishes] # This is so that we can return the dict as a list of lists
 
-            
             
 
             return Response({'store_name': store_name, 'store_offers': store_offers, "dish_suggestions": dishes,}, status=200)
