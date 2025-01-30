@@ -26,13 +26,13 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost',
                  '127.0.0.1',
-                 'https://fresh-offer-food-planner.gptengineer.run',
-                 'https://preview--fresh-offer-food-planner.gptengineer.run',
+                 'https://fresh-offer-food-planner.lovable.app',
+                 'https://preview--fresh-offer-food-planner.lovable.app/',
                  'food-planner-api-4112516d9b5e.herokuapp.com']
 
 CORS_ALLOWED_ORIGINS = [
-    'https://fresh-offer-food-planner.gptengineer.run',
-    'https://preview--fresh-offer-food-planner.gptengineer.run'
+    'https://fresh-offer-food-planner.lovable.app',
+    'https://preview--fresh-offer-food-planner.lovable.app'
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -95,8 +95,8 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'food_planner.urls'
 
 CSRF_TRUSTED_ORIGINS = ['https://food-planner-api-4112516d9b5e.herokuapp.com',
-                        'https://fresh-offer-food-planner.gptengineer.run',
-                        'https://preview--fresh-offer-food-planner.gptengineer.run']
+                        'https://fresh-offer-food-planner.lovable.app',
+                        'https://preview--fresh-offer-food-planner.lovable.app']
 
 
 TEMPLATES = [
