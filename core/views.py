@@ -509,6 +509,10 @@ def find_dishes_fast(request):
             SSE_room_id = int(latitude_str.split('.')[0] + latitude_str.split('.')[1])
             print(f'this is the SSE room id:: {SSE_room_id}')
 
+            #Get country
+            country = get_country_from_coordinates(latitude_str, longitude_str)
+            print(f"Country: {country}")
+
             # Set up the API request URL and headers
             url = "https://places.googleapis.com/v1/places/" + store_id
             headers = {
@@ -520,7 +524,6 @@ def find_dishes_fast(request):
             # Make the request to the Google Places API
             response = requests.get(url, headers=headers)
             print('this is the response:', response.json())
-            
 
             store = response.json()
 
@@ -592,7 +595,11 @@ def find_dishes_fast(request):
 
 
             dict_with_offers = organize_offers(unorganized_text_with_offers)
-            
+            # This istrctured as dict_example = """offers = {
+            #     "Steak 1Kg": (159.0, 119.00),
+            #     "Juice (500 ml)": (49.0, 29.00),
+            #     "suasages (300 g)": (45.0, 39.95),
+            # }
             # print('this is the dict with offers:', dict_with_offers)
         
 
@@ -606,7 +613,7 @@ def find_dishes_fast(request):
             # Now we have all articles on sale in the area and the prices of the articles in the stores.
 
             dishes = []
-            print('this is the all offers:', len(store_offers))
+            print('this is the amount of products on sale:', len(store_offers))
             while len(dishes) < number_of_dishes:
             
                 print(f'Now giving a dish suggestion from the store: {store_name}')
@@ -614,17 +621,27 @@ def find_dishes_fast(request):
                 # Create dish_suggestions
                 client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
+                
 
+                products_on_sale = str(store_offers.keys())
+
+                # ingredients_dict = sale_offers_to_ingredients_keywords(products_on_sale, number_of_dishes) #Structured as {"base_ingredients_1": "[ingredient_1, ingredient_2, ingredient_3, ingredient_4, ingredient_5]", "base_ingredients_2": "[ingredient_1, ingredient_2, ingredient_3, ingredient_4, ingredient_5]"}
+                english_ingredients = sale_offers_to_eng_ingredients(products_on_sale)
+                #Each base_ingredients is a list of 8 ingredients that are highly possible to be well suited together as a base for a dinner.
+                dish_suggestions = []
+                
+                #####################################################
                 dish_sugestions = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="gpt-4o",
                     max_tokens=256*4, 
                     n=1, 
                     stop=None, 
                     temperature=0.5,
                     messages=[ 
                     {"role": "system", "content": [{"type": "text", "text": "You are an dinner sugesttions assistan. You are helping a user find cheap alternatives for dishes based on existing sales prices."}]},
-                    {"role": "user", "content": [{"type": "text", "text": f"Here are the articles and with their orignal and reduced price as a dict for a store:{store_offers} ."}]},
-                    {"role": "user", "content": [{"type": "text", "text": f"Do not schoos a dish that is already in this list: {dishes}."}]},
+                    {"role": "user", "content": [{"type": "text", "text": f"Here are the products that can be used in the dish:{english_ingredients} ."}]},
+                    {"role": "user", "content": [{"type": "text", "text": f"Do not choose a dish that is already in this list: {dishes}."}]},
+                    {"role": "system", "content": [{"type": "text", "text": f"The dish should fit a user from {country}."}]},
                     {"role": "system", "content": [{"type": "text", "text": """Now give the user 1 suggestion for a dish that will use as many products as possible from the sales lists. Only answer with the name of the dish."""}]},
 
                 ]
@@ -632,10 +649,9 @@ def find_dishes_fast(request):
                 )
             
                 dish_suggestion_response = dish_sugestions.choices[0].message.content
-                print('this is the dish sugestions:', dish_suggestion_response)
 
                 ingredients_creator = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="gpt-4o",
                     max_tokens=256,
                     n=1,
                     stop=None,
@@ -655,6 +671,7 @@ def find_dishes_fast(request):
                 ingredients_json = json.loads(ingredients_response)
 
                 print('this is the ingredients:', ingredients_json)
+
 
                 sales_offers_seperator = client.chat.completions.create(
                     model="gpt-4o-mini",
@@ -695,11 +712,87 @@ def find_dishes_fast(request):
                                                                     }
                                                                 )
 
+            store_offers = {k: list(v) for k, v in store_offers.items()} # This is so that we can return the dict as a list of lists
+
+            dishes = [[dish,ingredients] for dish, ingredients in dishes] # This is so that we can return the dict as a list of lists
+
+            
             
 
             return Response({'store_name': store_name, 'store_offers': store_offers, "dish_suggestions": dishes,}, status=200)
         else:
             return Response(FindDishesSerializer.errors, status=400)
+
+def sale_offers_to_ingredients_keywords(prod_on_sale, num_of_base_alternatives):
+    ##This function should take the sale offers and convert them to keywords that can be used to generate dishes using spoonacular API
+
+    client = openai.OpenAI()
+
+
+
+    base_ingredients_creator = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=256,
+        n=1,
+        stop=None,
+        temperature=0.5,
+        response_format= { "type": "json_object" },
+        messages=[ 
+        {"role": "system", "content": [{"type": "text", "text": "You are an food shopping assistant. You are helping a user to write out different set of base ingredients that go togetherwell together for dinner."}]},
+        {"role": "system", "content": [{"type": "text", "text": f"The user will send some products that has been collected."}]},
+        {"role": "system", "content": [{"type": "text", "text": f"When you create the list of base ingredients you have to remove unnecesary info. For example change Steak 1Kg into only Steak, change Juice (500 ml) into only Juice and suasages (300 g) into only suasages."}]},
+        {"role": "system", "content": [{"type": "text", "text": f"Make sure that you do not combine random ingredients together. It is important that they should go be well fit to be used in the same dish/dinner."}]},
+        {"role": "system", "content": [{"type": "text", "text": f"If the products are in another language than english, make sure to translate to english, the user wants the products in english."}]},
+        {"role": "user", "content": [{"type": "text", "text": f"Give me {num_of_base_alternatives} sets of base ingredients that go well together in a dish using this list of possible ingredients {prod_on_sale}. Make sure to answer in enligsh."}]},
+        {"role": "system", "content": [{"type": "text", "text": """Your response should be in a json format with the following keys and values: {"base_ingredients_1": "A list with base ingredients that go well together in a dinner", "base_ingredients_2": "Another set of base ingredients that go well together as a list"} where each base_ingredient key represent a unique set of base_ingredients based on the provided list."""}]},
+        ]
+    )
+
+
+    base_ingredients_response = base_ingredients_creator.choices[0].message.content
+
+    base_ingredients_json = json.loads(base_ingredients_response)
+
+    print('this is the different base ingredients alternatives:', base_ingredients_json)
+
+
+    return base_ingredients_json
+
+def sale_offers_to_eng_ingredients(prod_on_sale):
+    ##This function should take the sale offers and convert them to keywords that can be used to generate dishes using spoonacular API
+
+    client = openai.OpenAI()
+
+
+
+    ingredients_rewritor = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=256,
+        n=1,
+        stop=None,
+        temperature=0.5,
+        response_format= { "type": "json_object" },
+        messages=[ 
+        {"role": "system", "content": [{"type": "text", "text": "You are an food shopping assistant. You are helping a user to rewrite ingredients a user has picked out into an easy to comprehend list of infredients."}]},
+        {"role": "system", "content": [{"type": "text", "text": f"The user will send some products that has been collected."}]},
+        {"role": "system", "content": [{"type": "text", "text": f"When you create the list of base ingredients you have to remove unnecesary info. For example change Steak 1Kg into only Steak, change Juice (500 ml) into only Juice and suasages (300 g) into only suasages."}]},
+        {"role": "system", "content": [{"type": "text", "text": f"If the products are in another language than english, make sure to translate to english, the user wants the products in english."}]},
+        {"role": "user", "content": [{"type": "text", "text": f"Give me a list of all these ingredients {prod_on_sale}. Answer me only with the ingredients and make sure to answer in enligsh."}]},
+        {"role": "system", "content": [{"type": "text", "text": """Your response should be in a json format with the following key and value {"ingredients": "A list with the ingredients"}."""}]},
+        ]
+    )
+
+
+    ingredients_response = ingredients_rewritor.choices[0].message.content
+
+    ingredients_json = json.loads(ingredients_response)
+
+    print('this is the ingredients in a clean key word structure:', ingredients_json)
+
+
+    return ingredients_json
+
+
 
 def get_nearest_grocery_stores(latitude, longitude, radius=3000, max_result_count=10):
 
@@ -882,7 +975,7 @@ def analyze_html_with_llm(search_content, target, max_results):
                 ]
             )
     
-    print('this is the response:', response)
+    print('this is the html analysis response:', response)
     # Extract the LLM's response
     return response.choices[0].message.content
 
@@ -968,7 +1061,7 @@ def check_for_offers(text_content):
                 ]
             )
     
-    print('this is the response:', response)
+    print('this is the offers check response:', response)
 
     response = response.choices[0].message.content
     response = json.loads(response)
@@ -995,8 +1088,8 @@ def organize_offers(unorganized_text_with_offers):
                 response_format= { "type": "json_object" },
                 messages=[
                     {"role": "system", "content": [{"type": "text", "text": f'You are a professional organizer that goes through a big cunk of text where grocery products are specified with reduced prices and their regular prices.'}]},
-                    {"role": "system", "content": [{"type": "text", "text": f'You are to organize the text into a dict with the following this example structure: {dict_example}'}]},
-                    {"role": "user", "content": [{"type": "text", "text": f'Organize the following text: {unorganized_text_with_offers}'}]},
+                    {"role": "system", "content": [{"type": "text", "text": f'You should to pick out all the food related articles and organize the text into a dict following this example structure: {dict_example}'}]},
+                    {"role": "user", "content": [{"type": "text", "text": f'Pick out all the food products and organize based on the following text: {unorganized_text_with_offers}'}]},
                     {"role": "system", "content": [{"type": "text", "text": """Now answer in json format with the following keys and values:
                                                      {
                                                         "offers": 
@@ -1005,8 +1098,28 @@ def organize_offers(unorganized_text_with_offers):
                 ]
             )
     
-    print('this is the response:', response)
+    print('this is the organize offers response:', response)
 
     response = response.choices[0].message.content
     response = json.loads(response)
     return response
+
+
+def get_country_from_coordinates(lat, lng):
+    api_key = settings.GOOGLE_MAPS_API_KEY
+    # Set up the API request URL with result_type filtering for country
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={api_key}"
+    
+    # Make the request to the Google Maps Geocoding API
+    response = requests.get(url)
+    data = response.json()
+
+    # Check if the response contains results
+    if 'results' in data and len(data['results']) > 0:
+        # Extract the country from the address components
+        for component in data['results'][0]['address_components']:
+            if "country" in component['types']:
+                return component['long_name']  # Return the country name
+    
+    # Return None or a default value if no country was found
+    return None
